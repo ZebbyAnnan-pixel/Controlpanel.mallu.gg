@@ -2,67 +2,86 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Malludino Control Panel</title>
+  <title>Mallugg Control Panel</title>
   <style>
-    body{font-family:sans-serif;padding:20px;background:#f0f0f0;}
-    ul{list-style:none;padding:0;}
-    li{margin:10px 0;background:#fff;padding:10px;border-radius:5px;display:flex;justify-content:space-between;align-items:center;}
-    button{margin-left:10px;padding:5px 10px;}
-    input{padding:5px;width:200px;}
+    body { font-family:sans-serif; padding:20px; background:#f0f0f0; }
+    ul { list-style:none; padding:0; }
+    li { margin:10px 0; background:#fff; padding:10px; border-radius:5px; display:flex; align-items:center; }
+    li img { width:50px; height:50px; margin-right:10px; object-fit:contain; }
+    button { margin-left:10px; padding:5px 10px; }
+    input { padding:5px; margin-right:5px; width:150px; }
   </style>
 </head>
 <body>
-  <h1>Malludino Modes Control</h1>
+  <h1>Mallugg Modes Control Panel</h1>
   <ul id="modes-list"></ul>
-  <input type="text" id="new-mode" placeholder="New mode">
+
+  <h3>Add New Mode</h3>
+  <input type="text" id="new-mode" placeholder="Mode Name">
+  <input type="text" id="new-image" placeholder="Image URL (raw GitHub link)">
   <button onclick="addMode()">Add Mode</button>
 
 <script>
-const repo = 'ZebbyAnnan-pixel/malludino'; // Replace with your main repo path
+const repo = 'ZebbyAnnan-pixel/mallu.gg'; // Replace with your main repo
 const filePath = 'modes.json';
-const token = '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'; // Replace with your GitHub personal access token
+const token = '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'; // Replace with your personal access token
 
 async function fetchModes() {
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`);
-  const data = await res.json();
-  const content = atob(data.content);
-  const json = JSON.parse(content);
-  
-  const list = document.getElementById('modes-list');
-  list.innerHTML = '';
-  json.modes.forEach((mode, idx) => {
-    const li = document.createElement('li');
-    li.textContent = mode;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`);
+    const data = await res.json();
+    const content = atob(data.content);
+    const json = JSON.parse(content);
 
-    const btn = document.createElement('button');
-    btn.textContent = 'Delete';
-    btn.onclick = () => deleteMode(idx, data.sha, json);
-    
-    li.appendChild(btn);
-    list.appendChild(li);
-  });
+    const list = document.getElementById('modes-list');
+    list.innerHTML = '';
+    json.modes.forEach((mode, idx) => {
+      const li = document.createElement('li');
+
+      const img = document.createElement('img');
+      img.src = mode.image || '';
+      li.appendChild(img);
+
+      const span = document.createElement('span');
+      span.textContent = mode.name;
+      li.appendChild(span);
+
+      const btn = document.createElement('button');
+      btn.textContent = 'Delete';
+      btn.onclick = () => deleteMode(idx, data.sha, json);
+      li.appendChild(btn);
+
+      list.appendChild(li);
+    });
+  } catch(err) {
+    console.error(err);
+    alert('Failed to load modes. Make sure modes.json exists in your repo.');
+  }
 }
 
 async function addMode() {
-  const newMode = document.getElementById('new-mode').value.trim();
-  if(!newMode) return alert('Enter a mode name');
+  const name = document.getElementById('new-mode').value.trim();
+  const image = document.getElementById('new-image').value.trim();
+  if(!name || !image) return alert('Enter both mode name and image URL');
 
   const res = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`);
   const data = await res.json();
   const content = atob(data.content);
   const json = JSON.parse(content);
 
-  if(json.modes.includes(newMode)) return alert('Mode already exists');
-  json.modes.push(newMode);
+  if(json.modes.some(m => m.name === name)) return alert('Mode already exists');
+
+  json.modes.push({name: name, image: image});
 
   await updateFile(json, data.sha);
   document.getElementById('new-mode').value = '';
+  document.getElementById('new-image').value = '';
   fetchModes();
 }
 
 async function deleteMode(idx, sha, json) {
   if(!confirm('Delete this mode?')) return;
-  json.modes.splice(idx, 1);
+  json.modes.splice(idx,1);
   await updateFile(json, sha);
   fetchModes();
 }
@@ -75,7 +94,7 @@ async function updateFile(json, sha) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      message: 'Update modes',
+      message: 'Update modes with images',
       content: btoa(JSON.stringify(json, null, 2)),
       sha: sha
     })
